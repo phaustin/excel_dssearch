@@ -45,11 +45,19 @@ def assign_reviewer(row):
 def make_filename(row):
     the_name = row["Applicant Name"]
     the_name = the_name.replace(" ", "_")
+    the_name = the_name.replace(",", "_")
+    rev2_name = f'{row["rev_2"]}/{the_name}-2_{row["rev_2"]}.xlsx'
+    rev1_name = f'{row["rev_1"]}/{the_name}-1_{row["rev_1"]}.xlsx'
+    reviewer_dict = dict(rev1_file=rev1_name, rev2_file=rev2_name)
+    return reviewer_dict
 
 
 out = df_candidates.apply(assign_reviewer, axis=1)
 df_revs = pd.DataFrame.from_records(out)
-df_candidates[['rev_2','rev_1']]=df_revs[['rev_2','rev_1']]
+df_candidates[["rev_2", "rev_1"]] = df_revs[["rev_2", "rev_1"]]
+out = df_candidates.apply(make_filename, axis=1)
+
+df_candidates[["rev2_file", "rev1_file"]] = df_revs[["rev2_file", "rev1_file"]]
 # df_candidates["reviewer"] = out
 # df_candidates.head()
 # groups = df_candidates.groupby("reviewer")
