@@ -9,7 +9,6 @@ from dataclasses import dataclass
 @dataclass
 class RevInfo:
     initial_dict: dict
-    reviewer_text: dict
     file_dict: dict
     item_dict: dict
     rev_vals: dict
@@ -19,13 +18,18 @@ def assign_reviewer(row, rev_info):
     """
     read a candidate's row  which has
     reviewer number 1 and 2 indicated under the names column and return
-    a dictinary of the form {'rev_1': 'rp', 'rev_2': 'sw'}
+    a dictionary of the form {'rev_1': 'rp', 'rev_2': 'sw'}
     """
+    rev_vals = rev_info.rev_vals
+    reviewer_text = {1: rev_vals[1]['rev'], 2: rev_vals[2]['rev']}
     reviewer_dict = {}
+    #
+    # intial_dict.keys() are [1,2]
+    #
     for reviewer in rev_info.initial_dict.keys():
         if row[reviewer] > 0:
             reviewer_val = int(row[reviewer])
-            reviewer_head = rev_info.reviewer_text[reviewer_val]
+            reviewer_head = reviewer_text[reviewer_val]
             reviewer_dict[reviewer_head] = rev_info.initial_dict[reviewer]
     return reviewer_dict
 
@@ -110,8 +114,7 @@ rev_vals = {
 names = ["Pawlowicz", "Ameli", "Austin", "Haber", "Waterman"]
 initials = ["rp", "aa", "pa", "eh", "sw"]
 initial_dict = dict(zip(names, initials))
-reviewer_text = {1: "rev_1", 2: "rev_2"}
-rev_info = RevInfo(initial_dict, reviewer_text, file_dict, item_dict, rev_vals)
+rev_info = RevInfo(initial_dict, file_dict, item_dict, rev_vals)
 
 #
 # get the list of candidates from the applicant list spreadsheewt
