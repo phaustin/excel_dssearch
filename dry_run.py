@@ -10,7 +10,7 @@ from dataclasses import dataclass
 class RevInfo:
     initial_dict: dict
     reviewer_text: dict
-
+    
 
 def assign_reviewer(row, rev_info):
     """
@@ -56,7 +56,7 @@ def make_xlfile(filename, base_dir):
     return outfile
 
 
-def fill_blanks(sheet, index, row, reviewer_num, file_dict, item_dict, rev_vals):
+def fill_blanks(sheet, row, index, reviewer_num, file_dict, item_dict, rev_vals):
     """
     fill an individual candidate spreadsheet with
     cell information
@@ -148,7 +148,7 @@ for index, row in all_rows[:20]:
         wb_copy = load_workbook(filename=str(excel_orig))
         the_sheet = wb_copy["main"]
         filled_sheet = fill_blanks(
-            the_sheet, index, row, rev_key, file_dict, item_dict, rev_vals
+            the_sheet, row, index, rev_key, file_dict, item_dict, rev_vals
         )
         name_col = rev_vals[rev_key]["filename"]
         filename = row[name_col]
