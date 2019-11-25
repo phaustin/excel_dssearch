@@ -10,7 +10,10 @@ from dataclasses import dataclass
 class RevInfo:
     initial_dict: dict
     reviewer_text: dict
-    
+    file_dict: dict
+    item_dict: dict
+    rev_vals: dict
+
 
 def assign_reviewer(row, rev_info):
     """
@@ -56,38 +59,43 @@ def make_xlfile(filename, base_dir):
     return outfile
 
 
-def fill_blanks(sheet, row, index, reviewer_num, file_dict, item_dict, rev_vals):
+def fill_blanks(sheet, row, index, reviewer_num, rev_info):
     """
     fill an individual candidate spreadsheet with
     cell information
     """
-    rev_col = rev_vals[reviewer_num]["rev"]
+    rev_col = rev_info.rev_vals[reviewer_num]["rev"]
     initials = row[rev_col]
-    cellnum = item_dict["initials"]
+    cellnum = rev_info.item_dict["initials"]
     sheet[cellnum] = initials
-    cellnum = item_dict["id"]
+    cellnum = rev_info.item_dict["id"]
     sheet[cellnum] = index
     for item in ["name", "school", "year", "level"]:
-        col_name = file_dict[item]
+        col_name = rev_info.file_dict[item]
         value = row[col_name]
-        cellnum = item_dict[item]
+        cellnum = rev_info.item_dict[item]
         sheet[cellnum] = value
     return sheet
 
 
 #
-# find the template file
+# find the template file and extract the named ranges
 #
 excel_orig = context.dsci_search / Path("draft_evaluation_form.xlsx")
 print(f"template is {str(excel_orig)}")
 
+#
+# file_dict maps applicant column names to candidate sheet range names
+#
 fields = ["name", "school", "year", "level"]
 colnames = ["Applicant Name", "School (PhD)", "Year (PhD)", "Highest Education Level"]
 file_dict = dict(zip(fields, colnames))
-
-item_dict = {}
+#
+# item_dict stores the named range values for the individual sheet cells
+#
 wb_copy = load_workbook(filename=str(excel_orig))
 fields.extend(["initials", "id"])
+item_dict = {}
 for item in fields:
     the_range = wb_copy.defined_names[item]
     row_col = list(the_range.destinations)[0][1]
@@ -103,10 +111,10 @@ names = ["Pawlowicz", "Ameli", "Austin", "Haber", "Waterman"]
 initials = ["rp", "aa", "pa", "eh", "sw"]
 initial_dict = dict(zip(names, initials))
 reviewer_text = {1: "rev_1", 2: "rev_2"}
-rev_info = RevInfo(initial_dict, reviewer_text)
+rev_info = RevInfo(initial_dict, reviewer_text, file_dict, item_dict, rev_vals)
 
 #
-# get the list of candidates
+# get the list of candidates from the applicant list spreadsheewt
 #
 candidate_file = context.dsci_search / Path("EDS - applicant list.xlsx")
 print(f'reading "{str(candidate_file)}"')
@@ -147,9 +155,7 @@ for index, row in all_rows[:20]:
     for rev_key in [1, 2]:
         wb_copy = load_workbook(filename=str(excel_orig))
         the_sheet = wb_copy["main"]
-        filled_sheet = fill_blanks(
-            the_sheet, row, index, rev_key, file_dict, item_dict, rev_vals
-        )
+        filled_sheet = fill_blanks(the_sheet, row, index, rev_key, rev_info)
         name_col = rev_vals[rev_key]["filename"]
         filename = row[name_col]
         outfile = make_xlfile(filename, base_dir)
