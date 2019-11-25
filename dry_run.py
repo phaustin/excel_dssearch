@@ -8,10 +8,17 @@ from dataclasses import dataclass
 
 @dataclass
 class RevInfo:
+    """
+    initial_dict maps reviewer names to initials
+    range_dict maps applicant columns to sheet range names
+    item_dict maps range names to ranges
+    rev_dict maps reviewer column and filename to their values
+    """
+
     initial_dict: dict
-    file_dict: dict
+    range_dict: dict
     item_dict: dict
-    rev_vals: dict
+    rev_dict: dict
 
 
 def assign_reviewer(row, rev_info):
@@ -20,8 +27,6 @@ def assign_reviewer(row, rev_info):
     reviewer number 1 and 2 indicated under the names column and return
     a dictionary of the form {'rev_1': 'rp', 'rev_2': 'sw'}
     """
-    rev_vals = rev_info.rev_vals
-    reviewer_text = {1: rev_vals[1]['rev'], 2: rev_vals[2]['rev']}
     reviewer_dict = {}
     #
     # intial_dict.keys() are [1,2]
@@ -29,7 +34,7 @@ def assign_reviewer(row, rev_info):
     for reviewer in rev_info.initial_dict.keys():
         if row[reviewer] > 0:
             reviewer_val = int(row[reviewer])
-            reviewer_head = reviewer_text[reviewer_val]
+            reviewer_head = rev_info.rev_dict[reviewer_val]["rev"]
             reviewer_dict[reviewer_head] = rev_info.initial_dict[reviewer]
     return reviewer_dict
 
@@ -68,102 +73,101 @@ def fill_blanks(sheet, row, index, reviewer_num, rev_info):
     fill an individual candidate spreadsheet with
     cell information
     """
-    rev_col = rev_info.rev_vals[reviewer_num]["rev"]
+    rev_col = rev_info.rev_dict[reviewer_num]["rev"]
     initials = row[rev_col]
     cellnum = rev_info.item_dict["initials"]
     sheet[cellnum] = initials
     cellnum = rev_info.item_dict["id"]
     sheet[cellnum] = index
     for item in ["name", "school", "year", "level"]:
-        col_name = rev_info.file_dict[item]
+        col_name = rev_info.range_dict[item]
         value = row[col_name]
         cellnum = rev_info.item_dict[item]
         sheet[cellnum] = value
     return sheet
 
 
-#
-# find the template file and extract the named ranges
-#
-excel_orig = context.dsci_search / Path("draft_evaluation_form.xlsx")
-print(f"template is {str(excel_orig)}")
+if __name__ == "__main__":
+    #
+    # find the template file and extract the named ranges
+    #
+    excel_orig = context.dsci_search / Path("draft_evaluation_form.xlsx")
+    print(f"template is {str(excel_orig)}")
 
-#
-# file_dict maps applicant column names to candidate sheet range names
-#
-fields = ["name", "school", "year", "level"]
-colnames = ["Applicant Name", "School (PhD)", "Year (PhD)", "Highest Education Level"]
-file_dict = dict(zip(fields, colnames))
-#
-# item_dict stores the named range values for the individual sheet cells
-#
-wb_copy = load_workbook(filename=str(excel_orig))
-fields.extend(["initials", "id"])
-item_dict = {}
-for item in fields:
-    the_range = wb_copy.defined_names[item]
-    row_col = list(the_range.destinations)[0][1]
-    item_dict[item] = row_col
+    #
+    # range_dict maps applicant column names to candidate sheet range names
+    #
+    range_names = ["name", "school", "year", "level"]
+    colnames = [
+        "Applicant Name",
+        "School (PhD)",
+        "Year (PhD)",
+        "Highest Education Level",
+    ]
+    range_dict = dict(zip(range_names, colnames))
+    #
+    # item_dict stores the named range values for the individual sheet cells
+    #
+    wb_copy = load_workbook(filename=str(excel_orig))
+    range_names.extend(["initials", "id"])
+    item_dict = {}
+    for item in range_names:
+        the_range = wb_copy.defined_names[item]
+        row_col = list(the_range.destinations)[0][1]
+        item_dict[item] = row_col
 
-rev_vals = {
-    1: {"rev": "rev_1", "filename": "rev1_file"},
-    2: {"rev": "rev_2", "filename": "rev2_file"},
-}
+    rev_dict = {
+        1: {"rev": "rev_1", "filename": "rev1_file"},
+        2: {"rev": "rev_2", "filename": "rev2_file"},
+    }
 
+    names = ["Pawlowicz", "Ameli", "Austin", "Haber", "Waterman"]
+    initials = ["rp", "aa", "pa", "eh", "sw"]
+    initial_dict = dict(zip(names, initials))
+    rev_info = RevInfo(initial_dict, range_dict, item_dict, rev_dict)
 
-names = ["Pawlowicz", "Ameli", "Austin", "Haber", "Waterman"]
-initials = ["rp", "aa", "pa", "eh", "sw"]
-initial_dict = dict(zip(names, initials))
-rev_info = RevInfo(initial_dict, file_dict, item_dict, rev_vals)
+    #
+    # get the list of candidates from the applicant list spreadsheewt
+    #
+    candidate_file = context.dsci_search / Path("EDS - applicant list.xlsx")
+    print(f'reading "{str(candidate_file)}"')
+    df_candidates = pd.read_excel(str(candidate_file), skiprows=[0])
+    columns = [
+        "Applicant Name",
+        "School (PhD)",
+        "Year (PhD)",
+        "Highest Education Level",
+        "Pawlowicz",
+        "Ameli",
+        "Austin",
+        "Haber",
+        "Waterman",
+    ]
+    #
+    # subset the columns
+    #
+    df_candidates.fillna(0, inplace=True)
+    df_candidates = pd.DataFrame(df_candidates[columns], copy=True)
+    print(df_candidates.index.values)
 
-#
-# get the list of candidates from the applicant list spreadsheewt
-#
-candidate_file = context.dsci_search / Path("EDS - applicant list.xlsx")
-print(f'reading "{str(candidate_file)}"')
-df_candidates = pd.read_excel(str(candidate_file), skiprows=[0])
-columns = [
-    "Applicant Name",
-    "School (PhD)",
-    "Year (PhD)",
-    "Highest Education Level",
-    "Pawlowicz",
-    "Ameli",
-    "Austin",
-    "Haber",
-    "Waterman",
-]
-#
-# subset the columns
-#
-df_candidates.fillna(0, inplace=True)
-df_candidates = pd.DataFrame(df_candidates[columns], copy=True)
-print(df_candidates.index.values)
+    #
+    # add columns for reviewer 1 and 2 initials and output file names
+    #
+    out = df_candidates.apply(assign_reviewer, args=(rev_info,), axis=1)
+    df_revs = pd.DataFrame.from_records(out)
+    df_candidates[["rev_2", "rev_1"]] = df_revs[["rev_2", "rev_1"]]
+    out = df_candidates.apply(make_filename, axis=1)
+    df_revs = pd.DataFrame.from_records(out)
+    df_candidates[["rev2_file", "rev1_file"]] = df_revs[["rev2_file", "rev1_file"]]
 
-
-#
-# add columns for reviewer 1 and 2 initials and output file names
-#
-out = df_candidates.apply(assign_reviewer, args=(rev_info,), axis=1)
-df_revs = pd.DataFrame.from_records(out)
-df_candidates[["rev_2", "rev_1"]] = df_revs[["rev_2", "rev_1"]]
-out = df_candidates.apply(make_filename, axis=1)
-df_revs = pd.DataFrame.from_records(out)
-df_candidates[["rev2_file", "rev1_file"]] = df_revs[["rev2_file", "rev1_file"]]
-
-
-base_dir = Path() / "sheets"
-all_rows = list(df_candidates.iterrows())
-for index, row in all_rows[:20]:
-    for rev_key in [1, 2]:
-        wb_copy = load_workbook(filename=str(excel_orig))
-        the_sheet = wb_copy["main"]
-        filled_sheet = fill_blanks(the_sheet, row, index, rev_key, rev_info)
-        name_col = rev_vals[rev_key]["filename"]
-        filename = row[name_col]
-        outfile = make_xlfile(filename, base_dir)
-        wb_copy.save(outfile)
-# df_candidates["reviewer"] = out
-# df_candidates.head()
-# groups = df_candidates.groupby("reviewer")
-# print(groups)
+    base_dir = Path() / "sheets"
+    all_rows = list(df_candidates.iterrows())
+    for index, row in all_rows:
+        for rev_key in [1, 2]:
+            wb_copy = load_workbook(filename=str(excel_orig))
+            the_sheet = wb_copy["main"]
+            filled_sheet = fill_blanks(the_sheet, row, index, rev_key, rev_info)
+            name_col = rev_dict[rev_key]["filename"]
+            filename = row[name_col]
+            outfile = make_xlfile(filename, base_dir)
+            wb_copy.save(outfile)
